@@ -1,0 +1,795 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>합(Clash) 시뮬레이터</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #12131C 0%, #1A1C29 100%);
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 850px;
+            background: #1F2232;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #FF5252;
+            font-size: 24px;
+            letter-spacing: -0.5px;
+            text-shadow: 0 2px 10px rgba(255, 82, 82, 0.3);
+        }
+        .turn-indicator {
+            background: #282C40;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #FFD740;
+            border: 1px solid rgba(255, 215, 64, 0.3);
+        }
+        
+        .battle-arena {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 16px;
+        }
+        .unit-card {
+            flex: 1;
+            background: #282C40;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1), 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+        .unit-card.player { border: 2px solid #4CAF50; }
+        .unit-card.enemy { border: 2px solid #FF5252; }
+
+        .unit-card.clash-winner {
+            border-color: #69F0AE !important;
+            box-shadow: 0 0 25px rgba(105, 240, 174, 0.6) !important;
+            transform: scale(1.04);
+            z-index: 2;
+        }
+        .unit-card.clash-loser {
+            border-color: #FF5252 !important;
+            opacity: 0.6;
+            filter: brightness(0.7);
+            transform: scale(0.96);
+        }
+        
+        .clash-result-banner {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 5;
+        }
+        .banner-win { display: block; background: #69F0AE; color: #12131C; }
+        .banner-lose { display: block; background: #FF5252; color: #FFFFFF; }
+        .banner-draw { display: block; background: #FFD740; color: #12131C; }
+
+        .hit-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .hit-effect.active {
+            animation: slashFlash 0.6s ease-out forwards;
+        }
+        @keyframes slashFlash {
+            0% { transform: scale(0.8); opacity: 0; }
+            30% { transform: scale(1.05); opacity: 0.9; }
+            70% { transform: scale(1); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+
+        .unit-role {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .player .unit-role { color: #81C784; }
+        .enemy .unit-role { color: #FF8A80; }
+
+        .unit-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        .hp-section { margin-bottom: 12px; }
+        .hp-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #A0A5BA;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .hp-grid { display: flex; gap: 3px; }
+        .hp-cell {
+            flex: 1;
+            height: 14px;
+            background: #14151F;
+            border-radius: 2px;
+            transition: background 0.3s;
+        }
+        .player .hp-cell.filled { background: #4CAF50; box-shadow: 0 0 6px rgba(76, 175, 80, 0.5); }
+        .enemy .hp-cell.filled { background: #FF5252; box-shadow: 0 0 6px rgba(255, 82, 82, 0.5); }
+
+        .sp-display {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #70A1FF;
+        }
+
+        .power-display {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 6px;
+            transition: all 0.3s ease;
+        }
+        .power-label {
+            font-size: 11px;
+            color: #A0A5BA;
+            margin-bottom: 2px;
+        }
+        .power-value {
+            font-size: 26px;
+            font-weight: 800;
+            color: #FFF;
+        }
+        .player .power-value { color: #69F0AE; }
+        .enemy .power-value { color: #FF5252; }
+
+        .power-range-sub {
+            font-size: 12px;
+            color: #FFD740;
+            margin-top: 4px;
+            font-weight: bold;
+        }
+
+        .power-display.highlight {
+            background: rgba(255, 215, 64, 0.2);
+            box-shadow: 0 0 15px rgba(255, 215, 64, 0.5);
+            transform: scale(1.03);
+        }
+
+        .clash-vs {
+            font-size: 28px;
+            font-style: italic;
+            font-weight: 900;
+            color: #FFD740;
+            text-shadow: 0 0 15px rgba(255, 215, 64, 0.4);
+            padding: 0 4px;
+        }
+
+        .coin-zone {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            height: 70px;
+            margin-bottom: 16px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        .coin-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #A0A5BA;
+        }
+        .coin {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #FFE082 0%, #FFB300 100%);
+            border: 3px solid #FFF8E1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 15px;
+            font-weight: bold;
+            color: #5D4037;
+            box-shadow: 0 4px 10px rgba(255, 215, 64, 0.4);
+            transition: background 0.3s, border-color 0.3s, color 0.3s, box-shadow 0.3s;
+        }
+        .coin.dark {
+            background: radial-gradient(circle, #545b66 0%, #2b3038 100%);
+            border: 3px solid #788291;
+            color: #e0e6ed;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+        }
+        .coin.spinning {
+            animation: spin 0.8s ease-out forwards;
+        }
+        @keyframes spin {
+            0% { transform: rotateY(0deg) scale(1); }
+            50% { transform: rotateY(720deg) scale(1.3); }
+            100% { transform: rotateY(1440deg) scale(1); }
+        }
+
+        .support-section {
+            background: #282C40;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .support-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #E0E0E0;
+        }
+        .support-btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1.2fr;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-buff { background: #2E7D32; color: #E8F5E9; }
+        .btn-debuff { background: #C62828; color: #FFEBEE; }
+        .btn-auto { background: linear-gradient(135deg, #FF8F00 0%, #FFB300 100%); color: #12131C; }
+
+        .btn.active-skill {
+            border-color: #FFFFFF !important;
+            box-shadow: 0 0 14px rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #FF5252 0%, #FF1744 100%);
+            color: white;
+            font-size: 16px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(255, 82, 82, 0.4);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 6px;
+        }
+        .badge-buff { background: #81C784; color: #1B5E20; }
+        .badge-debuff { background: #E57373; color: #B71C1C; }
+
+        .log-box {
+            background: #12131C;
+            border: 1px solid #282C40;
+            border-radius: 8px;
+            height: 140px;
+            padding: 12px;
+            overflow-y: auto;
+            font-family: 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #B0BEC5;
+            margin-top: 20px;
+        }
+        .log-entry { margin-bottom: 4px; }
+        .log-system { color: #90A4AE; }
+        .log-success { color: #69F0AE; font-weight: bold; }
+        .log-fail { color: #FF5252; font-weight: bold; }
+        .log-event { color: #FFD740; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-top">
+        <h1>⚔️ 합(Clash) 시뮬레이터</h1>
+        <div class="turn-indicator" id="turn-indicator">TURN 1</div>
+    </div>
+
+    <!-- 전투 현황판 -->
+    <div class="battle-arena">
+        <div class="unit-card player" id="player-card">
+            <img src="slash2.png" class="hit-effect" id="player-hit-img" alt="아군 피격 이펙트">
+            
+            <div class="clash-result-banner" id="player-banner">WIN!</div>
+            <div class="unit-role">PLAYER</div>
+            <div class="unit-name">아군 캐릭터</div>
+            
+            <div class="hp-section">
+                <div class="hp-header">
+                    <span>HP</span>
+                    <span id="player-hp-text">10/10</span>
+                </div>
+                <div class="hp-grid" id="player-hp-grid"></div>
+            </div>
+
+            <div class="sp-display">🧠 정신력(SP): <span id="player-sp">0</span></div>
+            <div class="power-display" id="player-power-box">
+                <div class="power-label">기준 합 위력 (SP 보정)</div>
+                <div class="power-value" id="player-power">10</div>
+                <div class="power-range-sub" id="player-range">범위: [ 8 ~ 12 ]</div>
+            </div>
+            <div id="player-status"></div>
+        </div>
+
+        <div class="clash-vs">VS</div>
+
+        <div class="unit-card enemy" id="enemy-card">
+            <img src="slash.png" class="hit-effect" id="enemy-hit-img" alt="적군 피격 이펙트">
+
+            <div class="clash-result-banner" id="enemy-banner">LOSE...</div>
+            <div class="unit-role">ENEMY</div>
+            <div class="unit-name">적군 캐릭터</div>
+            
+            <div class="hp-section">
+                <div class="hp-header">
+                    <span>HP</span>
+                    <span id="enemy-hp-text">10/10</span>
+                </div>
+                <div class="hp-grid" id="enemy-hp-grid"></div>
+            </div>
+
+            <div class="sp-display" style="color: #FF8A80;">🧠 정신력(SP): <span id="enemy-sp">0</span></div>
+            <div class="power-display" id="enemy-power-box">
+                <div class="power-label">기준 합 위력 (SP 보정)</div>
+                <div class="power-value" id="enemy-power">12</div>
+                <div class="power-range-sub" id="enemy-range">범위: [ 10 ~ 14 ]</div>
+            </div>
+            <div id="enemy-status"></div>
+        </div>
+    </div>
+
+    <!-- 코인 토스 연출 구역 -->
+    <div class="coin-zone">
+        <div class="coin-box">
+            <span>아군 오차:</span>
+            <div class="coin" id="player-coin">🪙</div>
+        </div>
+        <div class="coin-box">
+            <span>적군 오차:</span>
+            <div class="coin" id="enemy-coin">🪙</div>
+        </div>
+    </div>
+
+    <!-- 선제 서포트 스킬 섹션 -->
+    <div class="support-section">
+        <div class="support-title">🛡️ 선제 서포트 스킬 (합 개시 전 자유롭게 선택/변경 가능)</div>
+        <div class="support-btn-group">
+            <button class="btn btn-buff" id="btn-buff" onclick="selectSupport('buff')">팀원 조력 (+4)</button>
+            <button class="btn btn-debuff" id="btn-debuff" onclick="selectSupport('debuff')">적군 방해 (-3)</button>
+            <button class="btn btn-auto" id="btn-auto" onclick="autoSelectSupport()">🤖 최적 스킬 자동선택</button>
+        </div>
+    </div>
+
+    <!-- 액션 버튼 -->
+    <button class="btn btn-action" id="clash-btn" onclick="handleActionButton()">⚔️ 합(Clash) 개시</button>
+
+    <!-- 로그 출력 -->
+    <div class="log-box" id="log-box">
+        <div class="log-entry log-system">[시스템] 전투 준비 완료! 승률 게이지와 경우의 수 패널이 제거되었습니다.</div>
+    </div>
+</div>
+
+<script>
+    let gameState = {
+        turn: 1,
+        player: { basePower: 10, bonusPower: 0, hp: 10, maxHp: 10, sp: 0 },
+        enemy: { basePower: 12, bonusPower: 0, hp: 10, maxHp: 10, sp: 0 },
+        selectedSupport: null,
+        gameOver: false,
+        isRolling: false
+    };
+
+    function log(message, type = 'system') {
+        const logBox = document.getElementById('log-box');
+        const entry = document.createElement('div');
+        entry.className = `log-entry log-${type}`;
+        entry.innerHTML = `> ${message}`;
+        logBox.appendChild(entry);
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function renderHpGrid(unitType, currentHp, maxHp) {
+        const grid = document.getElementById(`${unitType}-hp-grid`);
+        document.getElementById(`${unitType}-hp-text`).innerText = `${currentHp}/${maxHp}`;
+        grid.innerHTML = '';
+
+        for (let i = 0; i < maxHp; i++) {
+            const cell = document.createElement('div');
+            cell.className = `hp-cell ${i < currentHp ? 'filled' : ''}`;
+            grid.appendChild(cell);
+        }
+    }
+
+    function updateHpDisplay() {
+        renderHpGrid('player', gameState.player.hp, gameState.player.maxHp);
+        renderHpGrid('enemy', gameState.enemy.hp, gameState.enemy.maxHp);
+    }
+
+    function updatePowerRanges() {
+        const playerBase = gameState.player.basePower + gameState.player.bonusPower;
+        const enemyBase = gameState.enemy.basePower + gameState.enemy.bonusPower;
+
+        const possibleVariances = [-2, -1, 1, 2];
+        let pMin = 999, pMax = -999;
+        let eMin = 999, eMax = -999;
+
+        for (let pVar of possibleVariances) {
+            const pFinal = playerBase + pVar;
+            if (pFinal < pMin) pMin = pFinal;
+            if (pFinal > pMax) pMax = pFinal;
+        }
+        for (let eVar of possibleVariances) {
+            const eFinal = enemyBase + eVar;
+            if (eFinal < eMin) eMin = eFinal;
+            if (eFinal > eMax) eMax = eFinal;
+        }
+
+        document.getElementById('player-range').innerText = `범위: [ ${pMin} ~ ${pMax} ]`;
+        document.getElementById('enemy-range').innerText = `범위: [ ${eMin} ~ ${eMax} ]`;
+    }
+
+    function updateUI() {
+        document.getElementById('turn-indicator').innerText = `TURN ${gameState.turn}`;
+        const totalPlayer = gameState.player.basePower + gameState.player.bonusPower;
+        const totalEnemy = gameState.enemy.basePower + gameState.enemy.bonusPower;
+
+        document.getElementById('player-power').innerText = totalPlayer;
+        document.getElementById('enemy-power').innerText = totalEnemy;
+        document.getElementById('player-sp').innerText = gameState.player.sp;
+        document.getElementById('enemy-sp').innerText = gameState.enemy.sp;
+        
+        updateHpDisplay();
+        updatePowerRanges();
+    }
+
+    function selectSupport(type) {
+        if (gameState.gameOver || gameState.isRolling) return;
+
+        document.getElementById('btn-buff').classList.remove('active-skill');
+        document.getElementById('btn-debuff').classList.remove('active-skill');
+        document.getElementById('btn-auto').classList.remove('active-skill');
+        document.getElementById('player-status').innerHTML = '';
+        document.getElementById('enemy-status').innerHTML = '';
+
+        gameState.player.bonusPower = 0;
+        gameState.enemy.bonusPower = 0;
+        gameState.selectedSupport = type;
+
+        if (type === 'buff') {
+            gameState.player.bonusPower = 4;
+            document.getElementById('btn-buff').classList.add('active-skill');
+            document.getElementById('player-status').innerHTML = `<span class="status-badge badge-buff">+4 조력 버프</span>`;
+            log(`[Turn ${gameState.turn}] 서포트 선택: '팀원 조력 (+4)' 적용.`, "event");
+        } else if (type === 'debuff') {
+            gameState.enemy.bonusPower = -3;
+            document.getElementById('btn-debuff').classList.add('active-skill');
+            document.getElementById('enemy-status').innerHTML = `<span class="status-badge badge-debuff">-3 방해 디버프</span>`;
+            log(`[Turn ${gameState.turn}] 서포트 선택: '적군 방해 (-3)' 적용.`, "event");
+        }
+
+        updateUI();
+    }
+
+    function autoSelectSupport() {
+        if (gameState.gameOver || gameState.isRolling) return;
+        selectSupport('buff');
+        document.getElementById('btn-auto').classList.add('active-skill');
+        log(`[Turn ${gameState.turn}] AI 자동선택: '팀원 조력' 스킬이 적용되었습니다.`, "event");
+    }
+
+    function getSpBasedVariance(sp) {
+        const positiveChance = 0.5 + (sp / 40);
+        const roll = Math.random();
+
+        if (roll < positiveChance) {
+            return Math.random() < (0.5 + sp / 80) ? 2 : 1;
+        } else {
+            return Math.random() < (0.5 - sp / 80) ? -2 : -1;
+        }
+    }
+
+    function handleActionButton() {
+        if (gameState.gameOver) {
+            resetGame();
+        } else {
+            startClashSequence();
+        }
+    }
+
+    function startClashSequence() {
+        if (gameState.isRolling) return;
+
+        gameState.isRolling = true;
+        const playerCoin = document.getElementById('player-coin');
+        const enemyCoin = document.getElementById('enemy-coin');
+        const clashBtn = document.getElementById('clash-btn');
+
+        clashBtn.disabled = true;
+        resetClashBanners();
+
+        playerCoin.classList.remove('spinning', 'dark');
+        enemyCoin.classList.remove('spinning', 'dark');
+        void playerCoin.offsetWidth;
+        void enemyCoin.offsetWidth;
+
+        playerCoin.classList.add('spinning');
+        enemyCoin.classList.add('spinning');
+
+        log(`[Turn ${gameState.turn}] 아군과 적군이 코인을 던집니다!`, "system");
+
+        setTimeout(() => {
+            playerCoin.classList.remove('spinning');
+            enemyCoin.classList.remove('spinning');
+
+            const playerVariance = getSpBasedVariance(gameState.player.sp);
+            const enemyVariance = getSpBasedVariance(gameState.enemy.sp);
+
+            if (playerVariance < 0) {
+                playerCoin.innerText = `${playerVariance}`;
+                playerCoin.classList.add('dark');
+            } else {
+                playerCoin.innerText = `+${playerVariance}`;
+            }
+
+            if (enemyVariance < 0) {
+                enemyCoin.innerText = `${enemyVariance}`;
+                enemyCoin.classList.add('dark');
+            } else {
+                enemyCoin.innerText = `+${playerVariance}`;
+            }
+
+            const finalPlayerPower = gameState.player.basePower + gameState.player.bonusPower + playerVariance;
+            const finalEnemyPower = gameState.enemy.basePower + gameState.enemy.bonusPower + enemyVariance;
+
+            document.getElementById('player-power').innerText = finalPlayerPower;
+            document.getElementById('enemy-power').innerText = finalEnemyPower;
+            
+            document.getElementById('player-power-box').classList.add('highlight');
+            document.getElementById('enemy-power-box').classList.add('highlight');
+
+            showClashBanners(finalPlayerPower, finalEnemyPower);
+
+            log(`--------------------------------------------------`, "system");
+            log(`🪙 코인 확정! -> 아군: [${playerVariance >= 0 ? '+' : ''}${playerVariance}] / 적군: [${enemyVariance >= 0 ? '+' : ''}${enemyVariance}]`, "event");
+            log(`⚡ 최종 위력 대치 -> 아군: [ ${finalPlayerPower} ] VS 적군: [ ${finalEnemyPower} ] (1.5초간 승패 연출 유지)`, "system");
+
+            setTimeout(() => {
+                document.getElementById('player-power-box').classList.remove('highlight');
+                document.getElementById('enemy-power-box').classList.remove('highlight');
+                resetClashBanners();
+
+                applyBattleResult(finalPlayerPower, finalEnemyPower);
+
+                gameState.isRolling = false;
+                clashBtn.disabled = false;
+            }, 1500);
+
+        }, 800);
+    }
+
+    function showClashBanners(playerPower, enemyPower) {
+        const playerCard = document.getElementById('player-card');
+        const enemyCard = document.getElementById('enemy-card');
+        const playerBanner = document.getElementById('player-banner');
+        const enemyBanner = document.getElementById('enemy-banner');
+
+        if (playerPower > enemyPower) {
+            playerCard.classList.add('clash-winner');
+            enemyCard.classList.add('clash-loser');
+            playerBanner.className = "clash-result-banner banner-win";
+            playerBanner.innerText = "WIN!";
+            enemyBanner.className = "clash-result-banner banner-lose";
+            enemyBanner.innerText = "LOSE...";
+        } else if (playerPower < enemyPower) {
+            playerCard.classList.add('clash-loser');
+            enemyCard.classList.add('clash-winner');
+            playerBanner.className = "clash-result-banner banner-lose";
+            playerBanner.innerText = "LOSE...";
+            enemyBanner.className = "clash-result-banner banner-win";
+            enemyBanner.innerText = "WIN!";
+        } else {
+            playerBanner.className = "clash-result-banner banner-draw";
+            playerBanner.innerText = "DRAW";
+            enemyBanner.className = "clash-result-banner banner-draw";
+            enemyBanner.innerText = "DRAW";
+        }
+    }
+
+    function resetClashBanners() {
+        const playerCard = document.getElementById('player-card');
+        const enemyCard = document.getElementById('enemy-card');
+        const playerBanner = document.getElementById('player-banner');
+        const enemyBanner = document.getElementById('enemy-banner');
+
+        playerCard.classList.remove('clash-winner', 'clash-loser');
+        enemyCard.classList.remove('clash-winner', 'clash-loser');
+        playerBanner.className = "clash-result-banner";
+        enemyBanner.className = "clash-result-banner";
+    }
+
+    function triggerHitEffect(targetType) {
+        const imgElement = document.getElementById(`${targetType}-hit-img`);
+        if (imgElement) {
+            imgElement.classList.remove('active');
+            void imgElement.offsetWidth;
+            imgElement.classList.add('active');
+
+            setTimeout(() => {
+                imgElement.classList.remove('active');
+            }, 600);
+        }
+    }
+
+    function applyBattleResult(finalPlayerPower, finalEnemyPower) {
+        if (finalPlayerPower > finalEnemyPower) {
+            log(`🎉 [합 승리] 아군의 위력이 더 높아 합에서 승리했습니다! (적군 체력 -1 / 아군 SP +5)`, "success");
+            gameState.enemy.hp -= 1;
+            gameState.player.sp = Math.min(20, gameState.player.sp + 5);
+            gameState.enemy.sp = Math.max(-20, gameState.enemy.sp - 5);
+            
+            triggerHitEffect('enemy');
+        } else if (finalPlayerPower < finalEnemyPower) {
+            log(`💥 [합 패배] 적군의 위력이 더 높아 합에서 패배했습니다... (아군 체력 -1 / 아군 SP -5)`, "fail");
+            gameState.player.hp -= 1;
+            gameState.player.sp = Math.max(-20, gameState.player.sp - 5);
+            gameState.enemy.sp = Math.min(20, gameState.enemy.sp + 5);
+            
+            triggerHitEffect('player');
+        } else {
+            log(`🤝 [합 무승부] 양측의 위력이 동일하여 피해 없이 넘어갑니다.`, "event");
+        }
+
+        updateHpDisplay();
+
+        if (gameState.enemy.hp <= 0) {
+            log(`🏆 [전투 승리!] 적을 완전히 제압했습니다!`, "success");
+            endGame(true);
+            return;
+        } else if (gameState.player.hp <= 0) {
+            log(`💀 [전투 패배...] 쓰러졌습니다.`, "fail");
+            endGame(false);
+            return;
+        }
+
+        prepareNextTurn();
+    }
+
+    function prepareNextTurn() {
+        gameState.turn++;
+        gameState.player.bonusPower = 0;
+        gameState.enemy.bonusPower = 0;
+        gameState.selectedSupport = null;
+
+        document.getElementById('btn-buff').classList.remove('active-skill');
+        document.getElementById('btn-debuff').classList.remove('active-skill');
+        document.getElementById('btn-auto').classList.remove('active-skill');
+        
+        document.getElementById('player-status').innerHTML = '';
+        document.getElementById('enemy-status').innerHTML = '';
+        
+        updateUI();
+        log(`➡️ 다음 턴(${gameState.turn})이 시작되었습니다.`, "system");
+    }
+
+    function endGame(isWin) {
+        gameState.gameOver = true;
+        document.getElementById('btn-buff').disabled = true;
+        document.getElementById('btn-debuff').disabled = true;
+        document.getElementById('btn-auto').disabled = true;
+        
+        const clashBtn = document.getElementById('clash-btn');
+        clashBtn.innerText = isWin ? "🎉 승리! 새로 시작하기" : "💀 패배... 다시 도전하기";
+        clashBtn.style.background = isWin ? "linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)" : "linear-gradient(135deg, #E57373 0%, #C62828 100%)";
+    }
+
+    function resetGame() {
+        gameState = {
+            turn: 1,
+            player: { basePower: 10, bonusPower: 0, hp: 10, maxHp: 10, sp: 0 },
+            enemy: { basePower: 12, bonusPower: 0, hp: 10, maxHp: 10, sp: 0 },
+            selectedSupport: null,
+            gameOver: false,
+            isRolling: false
+        };
+
+        resetClashBanners();
+
+        const playerCoin = document.getElementById('player-coin');
+        const enemyCoin = document.getElementById('enemy-coin');
+        playerCoin.innerText = "🪙";
+        enemyCoin.innerText = "🪙";
+        playerCoin.classList.remove('dark');
+        enemyCoin.classList.remove('dark');
+
+        document.getElementById('btn-buff').disabled = false;
+        document.getElementById('btn-debuff').disabled = false;
+        document.getElementById('btn-auto').disabled = false;
+
+        document.getElementById('btn-buff').classList.remove('active-skill');
+        document.getElementById('btn-debuff').classList.remove('active-skill');
+        document.getElementById('btn-auto').classList.remove('active-skill');
+
+        document.getElementById('player-status').innerHTML = '';
+        document.getElementById('enemy-status').innerHTML = '';
+        
+        const clashBtn = document.getElementById('clash-btn');
+        clashBtn.innerText = "⚔️ 합(Clash) 개시";
+        clashBtn.style.background = "linear-gradient(135deg, #FF5252 0%, #FF1744 100%)";
+        
+        log(`🔄 시뮬레이터가 초기화되었습니다. 새로운 전투를 시작합니다!`, "system");
+        updateUI();
+    }
+
+    updateUI();
+</script>
+</body>
+</html>
